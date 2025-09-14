@@ -65,6 +65,9 @@ export default function Index() {
     { id: crypto.randomUUID(), value: "Sample Todo 3", done: false },
   ]);
 
+  type FilterType = "all" | "done" | "pending";
+  const [filter, setFilter] = React.useState<FilterType>("all");
+
   const addTodo = (text: string) => {
     setTodos([...todos, { id: crypto.randomUUID(), value: text, done: false }]);
   };
@@ -72,6 +75,16 @@ export default function Index() {
   const toggleTodo = (id: uuid) => {
     setTodos(todos.map(todo => todo.id === id ? { ...todo, done: !todo.done } : todo));
   };
+
+  const filteredTodos = React.useMemo(() => {
+    if (filter === "done") {
+      return todos.filter(todo => todo.done);
+    }
+    if (filter === "pending") {
+      return todos.filter(todo => !todo.done);
+    }
+    return todos;
+  }, [todos, filter]);
 
   return (
     <SafeAreaProvider>
@@ -81,6 +94,13 @@ export default function Index() {
             TODO List
           </Text>
           <AddTodoForm addTodoHandler={addTodo} />
+
+          <View style={styles.filterContainer}>
+            <Button title="Todas" onPress={() => setFilter("all")} color={filter === 'all' ? 'blue' : 'gray'} />
+            <Button title="Pendentes" onPress={() => setFilter("pending")} color={filter === 'pending' ? 'blue' : 'gray'} />
+            <Button title="Concluídas" onPress={() => setFilter("done")} color={filter === 'done' ? 'blue' : 'gray'}/>
+          </View>
+
           <FlatList
             style={styles.list}
             data={todos.sort((a, b) => a.done === b.done ? 0 : a.done ? 1 : -1)}
@@ -118,13 +138,23 @@ const styles = StyleSheet.create({
     fontSize: 18,
     height: 44,
     textDecorationLine: "line-through",
+    color: 'gray'
   },
   list: {
     width: "100%",
     backgroundColor: "white",
     padding: 10,
-    marginTop: 20,
+    marginTop: 10,
   },
+  filterContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    width: '90%',
+    marginTop: 15,
+    paddingBottom: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee'
+  }
 });
 
 
