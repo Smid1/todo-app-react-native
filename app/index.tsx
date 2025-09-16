@@ -1,13 +1,13 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { Button, Keyboard, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { FlatList, GestureHandlerRootView } from "react-native-gesture-handler";
 
+import { getAllTodos, getDBVersion, getSQLiteVersion, migrateDB } from "@/lib/db";
+import { TodoItem, uuid } from "@/lib/types";
 import * as crypto from "expo-crypto";
+import { SQLiteProvider, useSQLiteContext } from "expo-sqlite";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 
-type uuid = string;
-
-type TodoItem = { id: uuid; value: string; done: boolean, createdAt: Date };
 
 function ListItem({ todoItem, toggleTodo }: { todoItem: TodoItem; toggleTodo: (id: uuid) => void }) {
 
@@ -20,11 +20,11 @@ function ListItem({ todoItem, toggleTodo }: { todoItem: TodoItem; toggleTodo: (i
     <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
       {!todoItem.done ? (
         <>
-          <Text style={styles.item}>{todoItem.value}</Text>
+          <Text style={styles.item}>{todoItem.text}</Text>
           <Button title="Concluir" onPress={() => { handlePress(todoItem.id) }} color="green" />
         </>
       ) : (
-        <Text style={styles.itemdone}>{todoItem.value}</Text>
+        <Text style={styles.itemdone}>{todoItem.text}</Text>
       )}
     </View>
   );
@@ -87,18 +87,66 @@ function AddTodoForm({ addTodoHandler }: { addTodoHandler: (text: string) => voi
   );
 }
 
+function Footer() {
+  const db = useSQLiteContext();
+
+  const [sqliteVersion, setSqliteVersion] = useState<string>("");
+  const [dbVersion, setDBVersion] = useState<string>();
+
+  useEffect( () => {
+    async function setup(){
+      const sqliteVersionResult = await getSQLiteVersion(db);
+      if (sqliteVersionResult) {
+        setSqliteVersion(sqliteVersionResult['sqlite_version()']);
+      }
+      else {
+        setSqliteVersion('unknown');
+      }
+
+      const dbVersionResult = await getDBVersion(db);
+      
+      if (dbVersionResult) {
+        setDBVersion(dbVersionResult['user_version'].toString());
+      }
+      else {
+        setDBVersion('unknown');
+      }
+
+
+
+    }
+
+    setup();
+  }, [db]);
+
+  return (
+    <View>
+      <Text style={{padding: 20}}>SQLite version: {sqliteVersion} / DBVersion: {dbVersion}</Text>
+    </View>
+  );
+}
 
 function TodoList() {
-  const [todos, setTodos] = React.useState<TodoItem[]>([
-    { id: crypto.randomUUID(), value: "Sample Todo", done: false, createdAt: new Date() },
-    { id: crypto.randomUUID(), value: "Sample Todo 2", done: true, createdAt: new Date() },
-    { id: crypto.randomUUID(), value: "Sample Todo 3", done: false, createdAt: new Date() },
-  ]);
+  
+  const [todos, setTodos] = React.useState<TodoItem[]>([]);
+
+  const db = useSQLiteContext();
+  
+  useEffect(() => {
+    async function load() {
+      const result = await getAllTodos(db);
+      setTodos(result);
+    }
+    
+    load();
+
+  }, [db])
+
 
   const [filter, setFilter] = React.useState<FilterOptions>(FilterOptions.All);
 
   const addTodo = (text: string) => {
-    setTodos([...todos, { id: crypto.randomUUID(), value: text, done: false, createdAt: new Date() }]);
+    setTodos([...todos, { id: crypto.randomUUID(), text: text, done: false, createdAt: new Date() }]);
   };
 
   const toggleTodo = (id: uuid) => {
@@ -143,7 +191,10 @@ export default function Index() {
   return (
     <SafeAreaProvider>
       <SafeAreaView style={{ flex: 1, backgroundColor: "white" }}>
-        <TodoList />
+        <SQLiteProvider databaseName="todos.db" onInit={migrateDB}>
+          <TodoList />
+          <Footer />
+        </SQLiteProvider>
       </SafeAreaView>
     </SafeAreaProvider>
   );
