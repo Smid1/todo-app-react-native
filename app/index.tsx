@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Button, Keyboard, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { FlatList, GestureHandlerRootView } from "react-native-gesture-handler";
 
-import { getAllTodos, getDBVersion, getSQLiteVersion, migrateDB } from "@/lib/db";
+import { getAllTodos, getDBVersion, getSQLiteVersion, insertTodo, migrateDB, updateTodo } from "@/lib/db";
 import { TodoItem, uuid } from "@/lib/types";
 import * as crypto from "expo-crypto";
 import { SQLiteProvider, useSQLiteContext } from "expo-sqlite";
@@ -10,10 +10,12 @@ import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 
 
 function ListItem({ todoItem, toggleTodo }: { todoItem: TodoItem; toggleTodo: (id: uuid) => void }) {
+  const db = useSQLiteContext();
 
   const handlePress = (id: uuid) => {
     console.log(`Todo item with id ${id} marked as complete.`);
     toggleTodo(id);
+    updateTodo(db,id)
   };
 
   return (
@@ -111,9 +113,6 @@ function Footer() {
       else {
         setDBVersion('unknown');
       }
-
-
-
     }
 
     setup();
@@ -146,7 +145,9 @@ function TodoList() {
   const [filter, setFilter] = React.useState<FilterOptions>(FilterOptions.All);
 
   const addTodo = (text: string) => {
+    console.log("texto: " + text)
     setTodos([...todos, { id: crypto.randomUUID(), text: text, done: false, createdAt: new Date() }]);
+    insertTodo(db, text);
   };
 
   const toggleTodo = (id: uuid) => {
@@ -307,4 +308,3 @@ const filterStyles = StyleSheet.create({
     color: 'white',
   },
 });
-
