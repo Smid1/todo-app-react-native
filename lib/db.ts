@@ -1,19 +1,19 @@
 import { SQLiteDatabase } from "expo-sqlite";
 
 import * as crypto from "expo-crypto";
-import { TodoItem } from "./types";
+import { TodoItem, uuid } from "./types";
 
 
-export async function migrateDB(db:SQLiteDatabase){
+export async function migrateDB(db: SQLiteDatabase) {
     const DATABASE_VERSION = 1;
-    
+
     const userVersionRow = await db.getFirstAsync<{ user_version: number }>('PRAGMA user_version');
     let currentDbVersion = userVersionRow?.user_version ?? 0;
 
-    if(currentDbVersion === DATABASE_VERSION)
+    if (currentDbVersion === DATABASE_VERSION)
         return;
 
-    if(currentDbVersion === 0){
+    if (currentDbVersion === 0) {
         console.log('Running initial database setup...');
         console.log(`Current DB version: ${currentDbVersion}, Target DB version: ${DATABASE_VERSION}`);
         initializeDB(db);
@@ -40,13 +40,13 @@ async function initializeDB(db: SQLiteDatabase) {
     `);
 }
 
-export function getSQLiteVersion(db: SQLiteDatabase){
+export function getSQLiteVersion(db: SQLiteDatabase) {
     return db.getFirstAsync<{ 'sqlite_version()': string }>(
         'SELECT sqlite_version()'
     );
 }
 
-export async function getDBVersion(db: SQLiteDatabase){
+export async function getDBVersion(db: SQLiteDatabase) {
     return await db.getFirstAsync<{ user_version: number }>('PRAGMA user_version');
 }
 
@@ -55,4 +55,28 @@ export async function getAllTodos(db: SQLiteDatabase): Promise<TodoItem[]> {
     return result;
 }
 
+export async function insertTodo(db: SQLiteDatabase, text: string) {
+    const id = crypto.randomUUID();
+    const createdAt = new Date().toLocaleString();
 
+    const statement = await db.prepareAsync(
+        `INSERT INTO todos (id, text, done, createdAt) VALUES ($id, $text, 0, $date)`
+    );
+    try {
+        await statement.executeAsync({ $id: id, $text: text, $date: createdAt });
+    } finally {
+        await statement.finalizeAsync();
+    }
+}
+
+export async function updateTodo(db: SQLiteDatabase, id: uuid) {
+    const statement = await db.prepareAsync(
+        `UPDATE todos SET done = 1 WHERE id = $id`
+    );
+    try {
+        await statement.executeAsync({ $id: id });
+    } finally {
+        await statement.finalizeAsync();
+    }
+
+}
